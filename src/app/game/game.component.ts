@@ -1,12 +1,18 @@
 import { Component, OnInit, ViewChild, Directive } from '@angular/core';
+import {Router} from '@angular/router';
 import {ActivatedRoute} from '@angular/router';
 import {ReplaySubject, interval} from 'rxjs';
 import {takeUntil} from 'rxjs/operators';
 
 import {TextureLoader,AxesHelper, LinearFilter, DirectionalLight,MeshPhongMaterial,BoxGeometry, GridHelper,  ShaderLib, ShaderMaterial, BackSide, BoxBufferGeometry, Mesh, Scene, PerspectiveCamera, Renderer, WebGLRenderer} from 'three';
 
-import {createPlayer} from './helpers/create_player';
+import {Player} from './helpers/create_player';
 import {loadModel, loadMaterial} from './helpers/models';
+
+const WORLD_DIMS = {
+  width: 20,
+  height: 20
+}
 
 import * as THREE from 'three';
 
@@ -27,15 +33,17 @@ export class GameComponent implements OnInit {
   playerModel: any;
 
   allPlayers: any;
+  controlState: Object;
 
-  @ViewChild('game') game;
+  @ViewChild('game', {}) game;
 
   destroy$: ReplaySubject<boolean> = new ReplaySubject<boolean>(1);
-  constructor(private route: ActivatedRoute) {}
+  constructor(private route: ActivatedRoute, private _router: Router) {}
 
   ngOnInit() {
     this.name = this.route.snapshot.paramMap.get("name") || 'Sammy the Slug';
     this.allPlayers = [];
+    this.controlState = {};
 
     window.addEventListener("resize", this.resizeRendererToDisplaySize.bind(this))
 
@@ -43,7 +51,6 @@ export class GameComponent implements OnInit {
       alert("No webgl support");
       return;
     }
-
   }
 
   ngAfterContentInit() {
@@ -54,20 +61,21 @@ export class GameComponent implements OnInit {
       console.error(err);
       return fallback;
     }).then(slugModel => {
-            this.player = createPlayer(this.name, slugModel);
+            this.player = new Player(this.name, slugModel, {});
             this.camera = this.createCamera(this.player.threeObj);
             this.scene = this.createScene();
             this.scene.add(this.player.threeObj);
             this.camera.lookAt( this.scene.position );
             this.renderer = new WebGLRenderer({canvas: this.game.nativeElement, antialias: true});
             this.resizeRendererToDisplaySize();
+            this.listenToKeyboard();
             this.animate(0);
     })
   }
 
   createScene() {
     const scene = new Scene();
-    scene.add(new GridHelper( 4, 10 ) );
+    scene.add(new GridHelper( WORLD_DIMS.width, WORLD_DIMS.height ) );
     scene.add( new AxesHelper() );
     scene.add(this.createLight());
     var light = new THREE.AmbientLight( 0x404040 ); // soft white light
@@ -87,7 +95,7 @@ export class GameComponent implements OnInit {
     const fov = 75;
     const aspect = 2;  // the canvas default
     const near = 0.1;
-    const far = 5;
+    const far = 100;
     const camera = new PerspectiveCamera(fov, aspect, near, far);
     camera.position.set(0, 2, -2);
     this.player.threeObj.add(camera);
@@ -105,14 +113,15 @@ export class GameComponent implements OnInit {
     }
   }
 
-  updatePlayer() {
-
-  }
-
+  prev = 0;
   gameTick(t) {
+    const elapsed = t-this.prev;
+    this.player.tick(elapsed, this.controlState);
     for(player of this.allPlayers) {
-      player.tick();
+      player.tick(elapsed);
     }
+    this.prev = t;
+    this.checkDead();
   }
 
   render(time) {
@@ -131,5 +140,56 @@ export class GameComponent implements OnInit {
     this.renderer.setSize(canvas.clientWidth,  canvas.clientHeight, false);
     this.camera.aspect = canvas.clientWidth / canvas.clientHeight;
     this.camera.updateProjectionMatrix();
+  }
+
+  listenToKeyboard() {
+    const keyMapping = {
+      "arrowup": "up",
+      "w": "up",
+      "arrowleft": "left",
+      "a": "left",
+      "arrowdown": "down",
+      "s": "down",
+      "arrowright": "right",
+      "d": "right",
+    }
+    window.addEventListener('keydown', (evt) => {
+      const key = evt.key.toLowerCase();
+      if(keyMapping.hasOwnProperty(key)) {
+        this.controlState[keyMapping[key]] = true;
+      }
+    })
+
+    window.addEventListener('keyup', evt => {
+      const key = evt.key.toLowerCase();
+      if(keyMapping.hasOwnProperty(key)) {
+        this.controlState[keyMapping[key]] = false;
+      }
+    })
+  }
+
+  checkDead() {
+    const pos = this.player.threeObj.position;
+    if(pos.y > WORLD_DIMS.height/2) {
+      this.lost();
+    }
+    if(pos.y < -WORLD_DIMS.height/2) {
+      this.lost();
+    }
+    if(pos.z > WORLD_DIMS.width/2) {
+      this.lost();
+    }
+    if(pos.z < -WORLD_DIMS.width/2) {
+      this.lost();
+    }
+  }
+
+  shownYet = false;
+  lost() {
+    if(!this.shownYet) {
+      this.shownYet = true;
+      alert("Your slug fell to a peaceful life in the woods below");
+      window.location.reload()
+    }
   }
 }
