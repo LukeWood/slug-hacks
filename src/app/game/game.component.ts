@@ -66,7 +66,7 @@ export class GameComponent implements OnInit {
     }).then(slugModel => {
             this.slugModel = slugModel;
             for(let child of (<any>slugModel).children) {
-              if(!(<any>child) instanceof Mesh) {
+              if(!((<any>child) instanceof Mesh)) {
                 continue;
               }
               if(child.hasOwnProperty('material')) {
