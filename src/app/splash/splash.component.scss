@@ -1,0 +1,16 @@
+.aligner {
+  height: 100%;
+  justify-content: space-around;
+  display: flex;
+  flex-direction: column;
+}
+
+.start-container {
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: auto;
+  margin-bottom: auto;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+}
