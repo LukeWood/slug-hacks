@@ -10,8 +10,8 @@ import {Player} from './helpers/create_player';
 import {loadModel, loadMaterial} from './helpers/models';
 
 const WORLD_DIMS = {
-  width: 20,
-  height: 20
+  width: 50,
+  height: 50
 }
 
 import * as THREE from 'three';
@@ -31,6 +31,8 @@ export class GameComponent implements OnInit {
 
   activePlayer: any;
   playerModel: any;
+
+  slugModel: Object;
 
   player: Player;
   allPlayers: any;
@@ -62,6 +64,22 @@ export class GameComponent implements OnInit {
       console.error(err);
       return fallback;
     }).then(slugModel => {
+            this.slugModel = slugModel;
+            for(let child of (<any>slugModel).children) {
+              if(!(<any>child) instanceof Mesh) {
+                continue;
+              }
+              if(child.hasOwnProperty('material')) {
+                const material = child.material;
+                if((<any>material) instanceof Array) {
+                  for(let mat of material) {
+                    mat.color.setHex(0xffe135);
+                  }
+                } else {
+                  material.color.setHex(0xffe135);
+                }
+              }
+            }
             this.player = new Player(this.name, slugModel);
             this.camera = this.createCamera(this.player.threeObj);
             this.scene = this.createScene();
@@ -98,7 +116,7 @@ export class GameComponent implements OnInit {
     const near = 0.1;
     const far = 100;
     const camera = new PerspectiveCamera(fov, aspect, near, far);
-    camera.position.set(0, 2, -2);
+    camera.position.set(0, 1.3, -2);
     this.player.threeObj.add(camera);
     return camera;
   }
@@ -122,7 +140,7 @@ export class GameComponent implements OnInit {
     for(let player of this.allPlayers) {
       player.tick(elapsed);
     }
-    
+
     this.prev = t;
     this.checkDead();
   }
