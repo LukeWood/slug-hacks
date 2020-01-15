@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import {Router} from '@angular/router';
 
 @Component({
   selector: 'app-splash',
@@ -7,13 +8,12 @@ import { Component, OnInit } from '@angular/core';
 })
 export class SplashComponent implements OnInit {
 
-  constructor() { }
+  constructor(private _router: Router) { }
 
-  ngOnInit() {
-  }
+  ngOnInit() {}
 
-  onClick(v) {
-
+  onClick(name) {
+    this._router.navigate(['/game', name])
   }
 
 }

@@ -4,6 +4,7 @@ import {SplashComponent} from './splash/splash.component';
 import {GameComponent} from './game/game.component';
 
 const routes: Routes = [
+  {path: 'game/:name' , component: GameComponent},
   {path: 'game' , component: GameComponent},
   {path: '' , component: SplashComponent}
 ];
