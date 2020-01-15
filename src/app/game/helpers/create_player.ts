@@ -2,7 +2,9 @@ import * as THREE from 'three';
 
 export class Player {
 
-  speed=1;
+  name: any;
+  threeObj: any;
+  state: any;
 
   constructor(name, threeObj){
     this.name = name;

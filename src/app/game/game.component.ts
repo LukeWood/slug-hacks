@@ -32,10 +32,11 @@ export class GameComponent implements OnInit {
   activePlayer: any;
   playerModel: any;
 
+  player: Player;
   allPlayers: any;
   controlState: Object;
 
-  @ViewChild('game', {}) game;
+  @ViewChild('game', {static: false}) game;
 
   destroy$: ReplaySubject<boolean> = new ReplaySubject<boolean>(1);
   constructor(private route: ActivatedRoute, private _router: Router) {}
@@ -61,7 +62,7 @@ export class GameComponent implements OnInit {
       console.error(err);
       return fallback;
     }).then(slugModel => {
-            this.player = new Player(this.name, slugModel, {});
+            this.player = new Player(this.name, slugModel);
             this.camera = this.createCamera(this.player.threeObj);
             this.scene = this.createScene();
             this.scene.add(this.player.threeObj);
@@ -117,9 +118,11 @@ export class GameComponent implements OnInit {
   gameTick(t) {
     const elapsed = t-this.prev;
     this.player.tick(elapsed, this.controlState);
-    for(player of this.allPlayers) {
+
+    for(let player of this.allPlayers) {
       player.tick(elapsed);
     }
+    
     this.prev = t;
     this.checkDead();
   }
