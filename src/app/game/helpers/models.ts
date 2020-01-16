@@ -1,9 +1,14 @@
 import { MTLLoader, OBJLoader } from "three-obj-mtl-loader";
 
-export function loadModel(path, materials) {
+export function loadModel(path, materials, transformer = null) {
+
   return new Promise((resolve, reject) => {
     materials.preload();
+    if(transformer) {
+      materials = transformer(materials)
+    }
     var loader = new OBJLoader();
+    loader.setMaterials(materials)
     // load a resource
     loader.load(
     	// resource URL

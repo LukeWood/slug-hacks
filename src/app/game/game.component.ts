@@ -12,6 +12,17 @@ import {loadModel, loadMaterial} from './helpers/models';
 
 import Physijs from 'physijs-webpack';
 
+import * as firebase from 'firebase/app'
+// Required for side-effects
+import "firebase/firestore";
+
+// If you enabled Analytics in your project, add the Firebase SDK for Analytics
+import "firebase/analytics";
+
+// Add the Firebase products that you want to use
+import "firebase/auth";
+import "firebase/firestore";
+
 const WORLD_DIMS = {
   width: 50,
   height: 50
@@ -32,6 +43,7 @@ export class GameComponent implements OnInit {
 
   activePlayer: any;
   playerModel: any;
+  db: any;
 
   slugModel: Object;
 
@@ -43,6 +55,10 @@ export class GameComponent implements OnInit {
   ground_material: any;
   ground: any;
 
+  uid: any;
+
+  slugs: any;
+
   @ViewChild('game', {static: false}) game;
 
   destroy$: ReplaySubject<boolean> = new ReplaySubject<boolean>(1);
@@ -50,8 +66,24 @@ export class GameComponent implements OnInit {
 
   ngOnInit() {
     this.name = this.route.snapshot.paramMap.get("name") || 'Sammy the Slug';
-    this.allPlayers = [];
+    this.allPlayers = {};
     this.controlState = {};
+    // Your web app's Firebase configuration
+    var firebaseConfig = {
+      apiKey: "AIzaSyDqL9qzmLFYCVP4-DxUFs0F1aRMN_ii3QA",
+      authDomain: "slug-hacks.firebaseapp.com",
+      databaseURL: "https://slug-hacks.firebaseio.com",
+      projectId: "slug-hacks",
+      storageBucket: "slug-hacks.appspot.com",
+      messagingSenderId: "887692061133",
+      appId: "1:887692061133:web:3a477abe7d6e495bb7bc84",
+      measurementId: "G-4C2K1Q4PJ2"
+    };
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    firebase.analytics();
+    this.db = firebase.firestore();
+    this.slugs = this.db.collection('slugs');
 
     window.addEventListener("resize", this.resizeRendererToDisplaySize.bind(this))
 
@@ -65,10 +97,42 @@ export class GameComponent implements OnInit {
     this.initGame();
   }
 
+  getUid() {
+    return new Promise((resolve, reject) => {
+      firebase.auth().onAuthStateChanged(function(user) {
+        if (user) {
+          // User is signed in.
+          var isAnonymous = user.isAnonymous;
+          var uid = user.uid;
+          resolve(uid);
+          // ...
+        } else {
+          // User is signed out.
+          // ...
+        }
+        // ...
+      });
+      firebase.auth().signInAnonymously().catch(function(error) {
+        // Handle Errors here.
+        var errorCode = error.code;
+        var errorMessage = error.message;
+        alert(errorMessage);
+        // ...
+      });
+    })
+
+  }
+
   initGame() {
     const fallback = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-    loadMaterial('assets/models/slug/obj/cartoon_slug.mtl')
-    .then((materials) => loadModel('assets/models/slug/obj/cartoon_slug.obj', materials))
+    this.getUid()
+    .then(uid => this.uid = uid)
+    .then(() => loadMaterial('assets/models/slug/obj/cartoon_slug.mtl'))
+    .then((materials) => loadModel('assets/models/slug/obj/cartoon_slug.obj', materials, (mats) => {
+      mats.materials.slug_eye_blue.color.setHex(0x20B2AA)
+      mats.materials.slug_skin.color.setHex(0xffe135)
+      return mats;
+    }))
     .catch(err => {
       console.error(err);
       return fallback;
@@ -83,12 +147,42 @@ export class GameComponent implements OnInit {
 
   initEntities(slugModel) {
     this.slugModel = slugModel;
-    this.player = new Player(this.name, slugModel);
+    this.player = new Player(this.name, this.uid, this.slugModel, this.db, true);
     this.camera = this.createCamera(this.player.physics_sphere);
     this.scene = this.createScene();
     this.scene.add(this.player.physics_sphere);
     this.scene.add(this.player.model);
     this.camera.lookAt( this.scene.position );
+
+    this.slugs.onSnapshot(
+      (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          const id = change.doc.id;
+          if(id == this.uid) {
+            return;
+          }
+
+          const data = change.doc.data();
+
+          if (change.type === "added") {
+            this.allPlayers[id] = new Player(this.name, id, this.slugModel, this.db, false);
+            this.scene.add(this.allPlayers[id].physics_sphere);
+            this.scene.add(this.allPlayers[id].model);
+          }
+          if (change.type === "modified") {
+            this.allPlayers[id].deserialize_state(data);
+          }
+          if (change.type === "removed") {
+            this.scene.remove(this.allPlayers[id].physics_sphere);
+            this.scene.remove(this.allPlayers[id].model);
+            delete this.allPlayers[id]
+          }
+        })
+      },
+      e => {
+        console.error(e);
+      }
+    )
 
     this.createWorld();
     this.renderer = new WebGLRenderer({canvas: this.game.nativeElement, antialias: true});
@@ -134,7 +228,7 @@ export class GameComponent implements OnInit {
       'assets/img/lakeside_2k.jpg',
     );
     this.ground_material = Physijs.createMaterial(
-        new THREE.MeshStandardMaterial( { color: 0x964B00 } ), 0.9, .2 // low restitution
+        new THREE.MeshStandardMaterial( { color: 0x964B00 } ), 0.9, 1 // low restitution
     );
       // Ground
       this.ground = new Physijs.BoxMesh(
@@ -181,8 +275,8 @@ export class GameComponent implements OnInit {
     const elapsed = t-this.prev;
     this.player.tick(elapsed, this.controlState);
 
-    for(let player of this.allPlayers) {
-      player.tick(elapsed);
+    for(let key of Object.keys(this.allPlayers)) {
+      this.allPlayers[key].tick(elapsed);
     }
 
     this.prev = t;
@@ -224,6 +318,7 @@ export class GameComponent implements OnInit {
     window.addEventListener('keydown', (evt) => {
       const key = evt.key.toLowerCase();
       if(keyMapping.hasOwnProperty(key)) {
+        this.player.serialize_state();
         this.controlState[keyMapping[key]] = true;
       }
     })
@@ -231,6 +326,7 @@ export class GameComponent implements OnInit {
     window.addEventListener('keyup', evt => {
       const key = evt.key.toLowerCase();
       if(keyMapping.hasOwnProperty(key)) {
+        this.player.serialize_state();
         this.controlState[keyMapping[key]] = false;
       }
     })
@@ -246,9 +342,14 @@ export class GameComponent implements OnInit {
   shownYet = false;
   lost() {
     if(!this.shownYet) {
-      this.shownYet = true;
-      alert("Your slug fell to a peaceful life in the woods below");
-      window.location.reload()
+      this.player.delete()
+        .then(() => {
+          window.location.replace('/')
+        })
     }
+  }
+
+  isMobile() {
+    return ( /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) )
   }
 }
