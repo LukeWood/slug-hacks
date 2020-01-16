@@ -273,7 +273,7 @@ export class GameComponent implements OnInit {
   prev = 0;
   gameTick(t) {
     const elapsed = t-this.prev;
-    this.player.tick(elapsed, this.controlState);
+    this.player.tick(elapsed);
 
     for(let key of Object.keys(this.allPlayers)) {
       this.allPlayers[key].tick(elapsed);
@@ -318,16 +318,16 @@ export class GameComponent implements OnInit {
     window.addEventListener('keydown', (evt) => {
       const key = evt.key.toLowerCase();
       if(keyMapping.hasOwnProperty(key)) {
-        this.player.serialize_state();
-        this.controlState[keyMapping[key]] = true;
+        this.player.controlState[keyMapping[key]] = true;
+        this.player.serialize_to_db();
       }
     })
 
     window.addEventListener('keyup', evt => {
       const key = evt.key.toLowerCase();
       if(keyMapping.hasOwnProperty(key)) {
-        this.player.serialize_state();
-        this.controlState[keyMapping[key]] = false;
+        this.player.controlState[keyMapping[key]] = false;
+        this.player.serialize_to_db();
       }
     })
   }

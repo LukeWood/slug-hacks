@@ -54,10 +54,7 @@ export class Player {
     };
   }
 
-  tick(dt, controls) {
-    if(this.mainCharacter) {
-      this.controlState = controls;
-    }
+  tick(dt) {
     if(this.controlSet("up")) {
       this.up();
     }
@@ -80,7 +77,7 @@ export class Player {
     }
   }
 
-  updateDb() {
+  serialize_to_db() {
     if(!this.deleted) {
       this.db.collection('slugs').doc(this.uid).set(
         this.serialize_state()
@@ -97,6 +94,7 @@ export class Player {
   }
 
   deserialize_state(nstate) {
+    console.log("DESERIAL")
     this.physics_sphere.position.set(nstate['position'].x, nstate['position'].y, nstate['position'].z)
     this.physics_sphere.__dirtyPosition = true;
     const linobj = nstate['linearVelocity'];
