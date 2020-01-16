@@ -8,6 +8,9 @@ const SHARED_FIELDS = [
 const xmax = 45;
 const zmax = 45;
 
+const weight = 250;
+const force = 4;
+
 export class Player {
 
   name: any;
@@ -35,7 +38,7 @@ export class Player {
     wireframe: true
     }),0.9, 0.05);
     var ball_geometry = new THREE.SphereGeometry(0.5,16,16);
-    this.physics_sphere = new Physijs.SphereMesh(ball_geometry,ball_material,15);
+    this.physics_sphere = new Physijs.SphereMesh(ball_geometry,ball_material,weight);
     this.physics_sphere.position.set(
       Math.random()*xmax - xmax/2,
       25,
@@ -111,19 +114,19 @@ export class Player {
   }
 
   up() {
-    this.physics_sphere.applyImpulse(new THREE.Vector3(0, 0, 2.5), new THREE.Vector3(1, 1, 1))
+    this.physics_sphere.applyImpulse(new THREE.Vector3(0, 0, force), new THREE.Vector3(1, 1, 1))
   }
 
   down() {
-    this.physics_sphere.applyImpulse(new THREE.Vector3(0, 0, -2.5), new THREE.Vector3(1, 1, 1))
+    this.physics_sphere.applyImpulse(new THREE.Vector3(0, 0, -force), new THREE.Vector3(1, 1, 1))
   }
 
   left() {
-    this.physics_sphere.applyImpulse(new THREE.Vector3(2.5, 0, 0), new THREE.Vector3(1, 1, 1))
+    this.physics_sphere.applyImpulse(new THREE.Vector3(force, 0, 0), new THREE.Vector3(1, 1, 1))
   }
 
   right() {
-    this.physics_sphere.applyImpulse(new THREE.Vector3(-2.5, 0, 0), new THREE.Vector3(1, 1, 1))
+    this.physics_sphere.applyImpulse(new THREE.Vector3(-force, 0, 0), new THREE.Vector3(1, 1, 1))
   }
   controlSet(control) {
     if(!this.controlState.hasOwnProperty(control)) {

@@ -52,6 +52,8 @@ export class GameComponent implements OnInit {
   controlState: Object;
   clock: THREE.Clock;
 
+  mobile: boolean;
+
   ground_material: any;
   ground: any;
 
@@ -68,6 +70,7 @@ export class GameComponent implements OnInit {
     this.name = this.route.snapshot.paramMap.get("name") || 'Sammy the Slug';
     this.allPlayers = {};
     this.controlState = {};
+    this.mobile = this.isMobile();
     // Your web app's Firebase configuration
     var firebaseConfig = {
       apiKey: "AIzaSyDqL9qzmLFYCVP4-DxUFs0F1aRMN_ii3QA",
