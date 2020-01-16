@@ -103,12 +103,38 @@ export class GameComponent implements OnInit {
     scene.add(this.createLight());
     var light = new THREE.AmbientLight( 0x404040 ); // soft white light
     scene.add( light );
+    let bgMesh;
+    {
+      const loader = new THREE.TextureLoader();
+      const texture = loader.load(
+        'assets/img/lakeside_2k.jpg',
+      );
+      texture.magFilter = THREE.LinearFilter;
+      texture.minFilter = THREE.LinearFilter;
+
+      const shader = THREE.ShaderLib.equirect;
+      const material = new THREE.ShaderMaterial({
+        fragmentShader: shader.fragmentShader,
+        vertexShader: shader.vertexShader,
+        uniforms: shader.uniforms,
+        depthWrite: false,
+        side: THREE.BackSide,
+      });
+      material.uniforms.tEquirect.value = texture;
+      const plane = new THREE.BoxBufferGeometry(WORLD_DIMS.width*2, WORLD_DIMS.height*1.2, WORLD_DIMS.height*2);
+      bgMesh = new THREE.Mesh(plane, material);
+      scene.add(bgMesh);
+    }
     return scene;
   }
 
   createWorld() {
+    const loader = new THREE.TextureLoader();
+    const texture = loader.load(
+      'assets/img/lakeside_2k.jpg',
+    );
     this.ground_material = Physijs.createMaterial(
-        new THREE.MeshStandardMaterial( { color: 0x00ff00 } ), 0.9, .2 // low restitution
+        new THREE.MeshStandardMaterial( { color: 0x964B00 } ), 0.9, .2 // low restitution
     );
       // Ground
       this.ground = new Physijs.BoxMesh(
@@ -212,7 +238,7 @@ export class GameComponent implements OnInit {
 
   checkDead() {
     const pos = this.player.physics_sphere.position;
-    if(pos.y < -5) {
+    if(pos.y < -WORLD_DIMS.height*1.2/2) {
       this.lost();
     }
   }
