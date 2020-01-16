@@ -24,9 +24,11 @@ import "firebase/auth";
 import "firebase/firestore";
 
 const WORLD_DIMS = {
-  width: 50,
-  height: 50
+  width: 500,
+  height: 500
 }
+
+const CAMERA_OFFSET = new THREE.Vector3(0, 6*2, -7*2);
 
 @Component({
   selector: 'app-game',
@@ -236,7 +238,8 @@ export class GameComponent implements OnInit {
       // Ground
       this.ground = new Physijs.BoxMesh(
         new THREE.BoxGeometry(WORLD_DIMS.width, 1, WORLD_DIMS.height),
-        this.ground_material,0 // mass
+        this.ground_material,
+        0 // mass
         // restitution
       );
       this.ground.position.set(0, -0.51, 0);
@@ -256,9 +259,9 @@ export class GameComponent implements OnInit {
     const fov = 75;
     const aspect = 2;  // the canvas default
     const near = 0.1;
-    const far = 100;
+    const far = 600;
     const camera = new PerspectiveCamera(fov, aspect, near, far);
-    camera.position.set(0, 2, -4);
+    camera.position.set(0, 6, -6);
     return camera;
   }
 
@@ -291,7 +294,7 @@ export class GameComponent implements OnInit {
     this.gameTick(time);
     this.scene.simulate(); // run physics
     this.camera.position.copy(this.player.model.position);
-    this.camera.position.add(new THREE.Vector3(0, 2, -4));
+    this.camera.position.add(CAMERA_OFFSET);
     this.renderer.render( this.scene, this.camera );
   }
 
