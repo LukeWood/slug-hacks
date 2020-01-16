@@ -1,6 +1,8 @@
 {
+  "allowJs": true,
   "compileOnSave": false,
   "compilerOptions": {
+    "allowJs": true,
     "baseUrl": "./",
     "outDir": "./dist/out-tsc",
     "sourceMap": true,
@@ -31,5 +33,5 @@
     "src/test.ts",
     "node_modules",
     "**/*.spec.ts"
-  ]
+  ],
 }

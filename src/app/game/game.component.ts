@@ -5,16 +5,17 @@ import {ReplaySubject, interval} from 'rxjs';
 import {takeUntil} from 'rxjs/operators';
 
 import {TextureLoader,AxesHelper, LinearFilter, DirectionalLight,MeshPhongMaterial,BoxGeometry, GridHelper,  ShaderLib, ShaderMaterial, BackSide, BoxBufferGeometry, Mesh, Scene, PerspectiveCamera, Renderer, WebGLRenderer} from 'three';
+import * as THREE  from 'three';
 
 import {Player} from './helpers/create_player';
 import {loadModel, loadMaterial} from './helpers/models';
+
+import Physijs from 'physijs-webpack';
 
 const WORLD_DIMS = {
   width: 50,
   height: 50
 }
-
-import * as THREE from 'three';
 
 @Component({
   selector: 'app-game',
@@ -23,7 +24,7 @@ import * as THREE from 'three';
 })
 export class GameComponent implements OnInit {
   name: string = 'Sammy the Slug';
-  scene: Scene;
+  scene: Physijs.Scene;
   camera: PerspectiveCamera;
   renderer: WebGLRenderer;
   light: DirectionalLight;
@@ -37,6 +38,10 @@ export class GameComponent implements OnInit {
   player: Player;
   allPlayers: any;
   controlState: Object;
+  clock: THREE.Clock;
+
+  ground_material: any;
+  ground: any;
 
   @ViewChild('game', {static: false}) game;
 
@@ -57,49 +62,63 @@ export class GameComponent implements OnInit {
   }
 
   ngAfterContentInit() {
+    this.initGame();
+  }
+
+  initGame() {
     const fallback = new THREE.BoxGeometry(0.2, 0.2, 0.2);
     loadMaterial('assets/models/slug/obj/cartoon_slug.mtl')
     .then((materials) => loadModel('assets/models/slug/obj/cartoon_slug.obj', materials))
     .catch(err => {
       console.error(err);
       return fallback;
-    }).then(slugModel => {
-            this.slugModel = slugModel;
-            for(let child of (<any>slugModel).children) {
-              if(!((<any>child) instanceof Mesh)) {
-                continue;
-              }
-              if(child.hasOwnProperty('material')) {
-                const material = child.material;
-                if((<any>material) instanceof Array) {
-                  for(let mat of material) {
-                    mat.color.setHex(0xffe135);
-                  }
-                } else {
-                  material.color.setHex(0xffe135);
-                }
-              }
-            }
-            this.player = new Player(this.name, slugModel);
-            this.camera = this.createCamera(this.player.threeObj);
-            this.scene = this.createScene();
-            this.scene.add(this.player.threeObj);
-            this.camera.lookAt( this.scene.position );
-            this.renderer = new WebGLRenderer({canvas: this.game.nativeElement, antialias: true});
-            this.resizeRendererToDisplaySize();
-            this.listenToKeyboard();
-            this.animate(0);
+    })
+    .then(loaded => this.initEntities(loaded))
+    .then(() => {
+      this.resizeRendererToDisplaySize();
+      this.listenToKeyboard();
+      this.animate(0);
     })
   }
 
+  initEntities(slugModel) {
+    this.slugModel = slugModel;
+    this.player = new Player(this.name, slugModel);
+    this.camera = this.createCamera(this.player.physics_sphere);
+    this.scene = this.createScene();
+    this.scene.add(this.player.physics_sphere);
+    this.scene.add(this.player.model);
+    this.camera.lookAt( this.scene.position );
+
+    this.createWorld();
+    this.renderer = new WebGLRenderer({canvas: this.game.nativeElement, antialias: true});
+    return new Promise(resolve => resolve());
+  }
+
   createScene() {
-    const scene = new Scene();
+    const scene = new Physijs.Scene();
+    scene.setGravity(new THREE.Vector3( 0, -30, 0 ));
     scene.add(new GridHelper( WORLD_DIMS.width, WORLD_DIMS.height ) );
     scene.add( new AxesHelper() );
     scene.add(this.createLight());
     var light = new THREE.AmbientLight( 0x404040 ); // soft white light
     scene.add( light );
     return scene;
+  }
+
+  createWorld() {
+    this.ground_material = Physijs.createMaterial(
+        new THREE.MeshStandardMaterial( { color: 0x00ff00 } ), 0.9, .2 // low restitution
+    );
+      // Ground
+      this.ground = new Physijs.BoxMesh(
+        new THREE.BoxGeometry(WORLD_DIMS.width, 1, WORLD_DIMS.height),
+        this.ground_material,0 // mass
+        // restitution
+      );
+      this.ground.position.set(0, -0.51, 0);
+      this.ground.receiveShadow = true;
+      this.scene.add(this.ground);
   }
 
   createLight() {
@@ -116,8 +135,7 @@ export class GameComponent implements OnInit {
     const near = 0.1;
     const far = 100;
     const camera = new PerspectiveCamera(fov, aspect, near, far);
-    camera.position.set(0, 1.3, -2);
-    this.player.threeObj.add(camera);
+    camera.position.set(0, 2, -4);
     return camera;
   }
 
@@ -148,6 +166,9 @@ export class GameComponent implements OnInit {
   render(time) {
     time *= 0.001;
     this.gameTick(time);
+    this.scene.simulate(); // run physics
+    this.camera.position.copy(this.player.model.position);
+    this.camera.position.add(new THREE.Vector3(0, 2, -4));
     this.renderer.render( this.scene, this.camera );
   }
 
@@ -190,17 +211,8 @@ export class GameComponent implements OnInit {
   }
 
   checkDead() {
-    const pos = this.player.threeObj.position;
-    if(pos.y > WORLD_DIMS.height/2) {
-      this.lost();
-    }
-    if(pos.y < -WORLD_DIMS.height/2) {
-      this.lost();
-    }
-    if(pos.z > WORLD_DIMS.width/2) {
-      this.lost();
-    }
-    if(pos.z < -WORLD_DIMS.width/2) {
+    const pos = this.player.physics_sphere.position;
+    if(pos.y < -5) {
       this.lost();
     }
   }
