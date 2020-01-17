@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import Physijs from 'physijs-webpack';
 
+import {show_error_banner } from './error_banner'
 const SHARED_FIELDS = [
  "position",  "_physijs"
 ]
@@ -9,7 +10,7 @@ const xmax = 45;
 const zmax = 45;
 
 const weight = 15;
-const force = 8;
+const force = 4;
 const slug_radius = 1.7;
 
 export class Player {
@@ -23,6 +24,8 @@ export class Player {
   mainCharacter: any;
   deleted = false;
 
+  destroy: any;
+
   controlState = {
     up: false,
     left: false,
@@ -35,11 +38,15 @@ export class Player {
     var ball_material = Physijs.createMaterial(new THREE.MeshPhongMaterial({
     color: 0xff0000,
     transparent: true,
-    opacity: 0.75,
+    opacity: 0,
     wireframe: true
     }),0.9, 0.05);
     var ball_geometry = new THREE.SphereGeometry(slug_radius,16, 16);
     this.physics_sphere = new Physijs.SphereMesh(ball_geometry,ball_material,weight);
+
+    var slowing_rate = new THREE.Vector3(1, 1, 1);
+    var mesh_eps = 0.0001;
+
     this.physics_sphere.slug = true;
     this.physics_sphere.position.set(
       Math.random()*xmax - xmax/2,
@@ -48,7 +55,8 @@ export class Player {
     );
     this.physics_sphere.addEventListener( 'collision', ( other_object, relative_velocity, relative_rotation, contact_normal ) => {
       if(other_object.slug && this.mainCharacter) {
-        this.physics_sphere.applyImpulse(new THREE.Vector3((0.5 -Math.random())*2500, Math.random()*5000,(0.5 -Math.random())*2500), new THREE.Vector3(1, 1, 1))
+        other_object.applyImpulse(new THREE.Vector3(relative_velocity.x*15, Math.random()*500,relative_velocity.z*15),contact_normal)
+        this.physics_sphere.applyImpulse(new THREE.Vector3(-relative_velocity.x*15, Math.random()*500,-relative_velocity.z*15),contact_normal)
         this.serialize_to_db();
       }
     // `this` has collided with `other_object` with an impact speed of `relative_velocity` and a rotational force of `relative_rotation` and at normal `contact_normal`
@@ -93,7 +101,14 @@ export class Player {
     if(!this.deleted) {
       this.db.collection('slugs').doc(this.uid).set(
         this.serialize_state()
-      ).catch(e => console.error(e))
+      ).catch(e => {
+        if(e.code == "resource-exhausted") {
+          show_error_banner("Firebase Quota Exhausted, check back later!")
+        } else {
+          show_error_banner(e);
+        }
+        console.error(e)
+      })
     }
   }
 
@@ -106,7 +121,6 @@ export class Player {
   }
 
   deserialize_state(nstate) {
-    console.log("DESERIAL")
     this.physics_sphere.position.set(nstate['position'].x, nstate['position'].y, nstate['position'].z)
     this.physics_sphere.__dirtyPosition = true;
     const linobj = nstate['linearVelocity'];
@@ -119,7 +133,17 @@ export class Player {
   delete() {
     this.deleted = true;
     return this.db.collection('slugs').doc(this.uid).delete()
-      .then(() => console.log("deleted data"));
+      .then(() => {
+        console.log("deleted data")
+        window.location.replace('/')
+      })
+      .catch(e => {
+        if(e.code == "resource-exhausted") {
+          show_error_banner("Firebase Quota Exhausted, check back later!")
+        } else {
+          show_error_banner(e);
+        }
+      })
   }
 
   up() {

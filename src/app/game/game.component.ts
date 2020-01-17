@@ -9,6 +9,7 @@ import * as THREE  from 'three';
 
 import {Player} from './helpers/create_player';
 import {loadModel, loadMaterial} from './helpers/models';
+import {show_error_banner} from './helpers/error_banner';
 
 import Physijs from 'physijs-webpack';
 
@@ -24,8 +25,8 @@ import "firebase/auth";
 import "firebase/firestore";
 
 const WORLD_DIMS = {
-  width: 500,
-  height: 500
+  width: 100,
+  height: 100
 }
 
 const CAMERA_OFFSET = new THREE.Vector3(0, 6*2, -7*2);
@@ -152,9 +153,10 @@ export class GameComponent implements OnInit {
 
   initEntities(slugModel) {
     this.slugModel = slugModel;
+    this.scene = this.createScene();
+
     this.player = new Player(this.name, this.uid, this.slugModel, this.db, true);
     this.camera = this.createCamera(this.player.physics_sphere);
-    this.scene = this.createScene();
     this.scene.add(this.player.physics_sphere);
     this.scene.add(this.player.model);
     this.camera.lookAt( this.scene.position );
@@ -185,11 +187,17 @@ export class GameComponent implements OnInit {
         })
       },
       e => {
+        if(e.code == "resource-exhausted") {
+          show_error_banner("Firebase Quota Exhausted, check back later!")
+        } else {
+          show_error_banner(e);
+        }
         console.error(e);
       }
     )
 
     this.createWorld();
+    this.createTrees();
     this.renderer = new WebGLRenderer({canvas: this.game.nativeElement, antialias: true});
     return new Promise(resolve => resolve());
   }
@@ -197,8 +205,6 @@ export class GameComponent implements OnInit {
   createScene() {
     const scene = new Physijs.Scene();
     scene.setGravity(new THREE.Vector3( 0, -30, 0 ));
-    scene.add(new GridHelper( WORLD_DIMS.width, WORLD_DIMS.height ) );
-    scene.add( new AxesHelper() );
     scene.add(this.createLight());
     var light = new THREE.AmbientLight( 0x404040 ); // soft white light
     scene.add( light );
@@ -220,6 +226,7 @@ export class GameComponent implements OnInit {
         side: THREE.BackSide,
       });
       material.uniforms.tEquirect.value = texture;
+
       const plane = new THREE.BoxBufferGeometry(WORLD_DIMS.width*2, WORLD_DIMS.height*1.2, WORLD_DIMS.height*2);
       bgMesh = new THREE.Mesh(plane, material);
       scene.add(bgMesh);
@@ -230,10 +237,10 @@ export class GameComponent implements OnInit {
   createWorld() {
     const loader = new THREE.TextureLoader();
     const texture = loader.load(
-      'assets/img/lakeside_2k.jpg',
+      'assets/img/burnt_wood_texture.jpg',
     );
     this.ground_material = Physijs.createMaterial(
-        new THREE.MeshStandardMaterial( { color: 0x964B00 } ), 0.9, 1 // low restitution
+        new THREE.MeshStandardMaterial( { map: texture } ), 0.9, 1 // low restitution
     );
       // Ground
       this.ground = new Physijs.BoxMesh(
@@ -245,6 +252,44 @@ export class GameComponent implements OnInit {
       this.ground.position.set(0, -0.51, 0);
       this.ground.receiveShadow = true;
       this.scene.add(this.ground);
+  }
+
+  createTrees() {
+    const loader = new THREE.TextureLoader();
+    const treeTexture = loader.load(
+      'assets/img/burnt_wood_texture.jpg',
+    );
+    const treeMaterial = Physijs.createMaterial(
+        new THREE.MeshStandardMaterial( { map: treeTexture } ), 0.9, 1 // low restitution
+    );
+
+    const treeHeight = 50;
+
+    const treeGeo = new THREE.CylinderGeometry( 2, 2, treeHeight, 32 )
+
+    const positions = [
+      [0, 0],
+      [15, 38],
+      [15, -22],
+      [-42, 33],
+      [0, 25],
+      [48, -2],
+      [48, 48],
+      [-37, -48],
+      [-37, -22],
+      [48, -2]
+    ]
+    for(let pos of positions) {
+      // Ground
+      const tree = new Physijs.CylinderMesh(
+        treeGeo,
+        treeMaterial,
+        0 // mass
+        // restitution
+      );
+      tree.position.set(pos[0], treeHeight/2, pos[1]);
+      this.scene.add(tree);
+    }
   }
 
   createLight() {
@@ -340,18 +385,28 @@ export class GameComponent implements OnInit {
 
   checkDead() {
     const pos = this.player.physics_sphere.position;
-    if(pos.y < -WORLD_DIMS.height*1.2/2) {
+    if(pos.y < -10) {
       this.lost();
     }
+
   }
 
   shownYet = false;
   lost() {
     if(!this.shownYet) {
-      this.player.delete()
-        .then(() => {
-          window.location.replace('/')
-        })
+      this.shownYet = true;
+      try {
+        this.player.delete()
+          .then(() => {
+            window.location.replace('/')
+          })
+          .catch(err => {
+            window.location.replace('/')
+            show_error_banner(err)
+          })
+      } catch(e) {
+        window.location.replace('/')
+      }
     }
   }
 
