@@ -57,6 +57,7 @@ export class Player {
       if(other_object.slug && this.mainCharacter) {
         other_object.applyImpulse(new THREE.Vector3(relative_velocity.x*15, Math.random()*500,relative_velocity.z*15),contact_normal)
         this.physics_sphere.applyImpulse(new THREE.Vector3(-relative_velocity.x*15, Math.random()*500,-relative_velocity.z*15),contact_normal)
+        // do this next ticks
         this.serialize_to_db();
       }
     // `this` has collided with `other_object` with an impact speed of `relative_velocity` and a rotational force of `relative_rotation` and at normal `contact_normal`
@@ -117,10 +118,12 @@ export class Player {
     result['position'] = JSON.parse(JSON.stringify(this.physics_sphere['position']));
     result['controlState'] = JSON.parse(JSON.stringify(this.controlState));
     result['linearVelocity'] = JSON.parse(JSON.stringify(this.physics_sphere.getLinearVelocity()));
-    return result;
+    return {state: JSON.stringify(result)};
   }
 
   deserialize_state(nstate) {
+    nstate = JSON.parse(nstate)
+    nstate = nstate.state;
     this.physics_sphere.position.set(nstate['position'].x, nstate['position'].y, nstate['position'].z)
     this.physics_sphere.__dirtyPosition = true;
     const linobj = nstate['linearVelocity'];
@@ -132,18 +135,7 @@ export class Player {
 
   delete() {
     this.deleted = true;
-    return this.db.collection('slugs').doc(this.uid).delete()
-      .then(() => {
-        console.log("deleted data")
-        window.location.replace('/')
-      })
-      .catch(e => {
-        if(e.code == "resource-exhausted") {
-          show_error_banner("Firebase Quota Exhausted, check back later!")
-        } else {
-          show_error_banner(e);
-        }
-      })
+    return this.db.collection('slugs').doc(this.uid).delete();
   }
 
   up() {

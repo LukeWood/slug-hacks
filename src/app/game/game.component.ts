@@ -156,6 +156,7 @@ export class GameComponent implements OnInit {
     this.scene = this.createScene();
 
     this.player = new Player(this.name, this.uid, this.slugModel, this.db, true);
+    this.player.serialize_to_db();
     this.camera = this.createCamera(this.player.physics_sphere);
     this.scene.add(this.player.physics_sphere);
     this.scene.add(this.player.model);
@@ -355,6 +356,13 @@ export class GameComponent implements OnInit {
     this.camera.updateProjectionMatrix();
   }
 
+  const keyMapPressed = {
+    "up": false,
+    "left": false,
+    "down": false,
+    "right": false
+  }
+
   listenToKeyboard() {
     const keyMapping = {
       "arrowup": "up",
@@ -366,9 +374,14 @@ export class GameComponent implements OnInit {
       "arrowright": "right",
       "d": "right",
     }
+
     window.addEventListener('keydown', (evt) => {
       const key = evt.key.toLowerCase();
       if(keyMapping.hasOwnProperty(key)) {
+        if(this.keyMapPressed[key]) {
+          return;
+        }
+        this.keyMapPressed[key] = true;
         this.player.controlState[keyMapping[key]] = true;
         this.player.serialize_to_db();
       }
@@ -377,6 +390,7 @@ export class GameComponent implements OnInit {
     window.addEventListener('keyup', evt => {
       const key = evt.key.toLowerCase();
       if(keyMapping.hasOwnProperty(key)) {
+        this.keyMapPressed[key] = false;
         this.player.controlState[keyMapping[key]] = false;
         this.player.serialize_to_db();
       }
@@ -388,7 +402,6 @@ export class GameComponent implements OnInit {
     if(pos.y < -10) {
       this.lost();
     }
-
   }
 
   shownYet = false;
